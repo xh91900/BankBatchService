@@ -19,38 +19,18 @@ namespace BankBatchService
             // 初始化系统配置
             SYSConstant.GetParam();
 
+            // 2001/2002出库
             Task.Run(() =>
             {
-                PutOutStorageTask putInTask = new PutOutStorageTask();
-                putInTask.Start();
+                PutOutStorageTask putOutTask = new PutOutStorageTask();
+                putOutTask.Start();
             });
 
-            // 2001入库
+            // 生成扣保证金
             Task.Run(() =>
             {
-                PutInStorageTask task = new PutInStorageTask();
-                task.StartProcessAccountTransferDataTask();
-            });
-
-            // 2002
-            Task.Run(() =>
-            {
-                PutInStorageTask task = new PutInStorageTask();
-                task.StartProcessDepositTransferTask();
-            });
-
-            //签约 
-            Task.Run(() =>
-            {
-                PutInStorageTask task = new PutInStorageTask();
-                task.StartProcessSignInfoTask();
-            });
-
-            // 二次扣款成功
-            Task.Run(() =>
-            {
-                PutInStorageTask task = new PutInStorageTask();
-                task.StartProcessTwiceDebitSuccessTask();
+                PutOutStorageTask task = new PutOutStorageTask();
+                task.StartProcessDepositTask();
             });
 
             // 解约
@@ -67,11 +47,39 @@ namespace BankBatchService
                 task.StartProcessDepositAmountReduceTask();
             });
 
-            // 生成扣保证金
+            // 银行账号与ETC卡绑定信息（2008号报文）定时处理任务
             Task.Run(() =>
             {
                 PutOutStorageTask task = new PutOutStorageTask();
-                task.StartProcessDepositTask();
+                task.StartProcessBankAccountBingETCTask();
+            });
+
+            // 2001入库
+            Task.Run(() =>
+            {
+                PutInStorageTask task = new PutInStorageTask();
+                task.StartProcessAccountTransferDataTask();
+            });
+
+            // 2002入库
+            Task.Run(() =>
+            {
+                PutInStorageTask task = new PutInStorageTask();
+                task.StartProcessDepositTransferTask();
+            });
+
+            // 二次扣款成功
+            Task.Run(() =>
+            {
+                PutInStorageTask task = new PutInStorageTask();
+                task.StartProcessTwiceDebitSuccessTask();
+            });
+
+            //签约 
+            Task.Run(() =>
+            {
+                PutInStorageTask task = new PutInStorageTask();
+                task.StartProcessSignInfoTask();
             });
 
             // 黑白名单
@@ -79,13 +87,6 @@ namespace BankBatchService
             {
                 PutInStorageTask task = new PutInStorageTask();
                 task.StartProcessYKTSignIncrement();
-            });
-
-            // 银行账号与ETC卡绑定信息（2008号报文）定时处理任务
-            Task.Run(() =>
-            {
-                PutOutStorageTask task = new PutOutStorageTask();
-                task.StartProcessBankAccountBingETCTask();
             });
 
             BankBatchWindow window = new BankBatchWindow();

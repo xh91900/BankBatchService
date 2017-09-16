@@ -480,7 +480,7 @@ namespace BankBatchService
                             if (item.Account_Detail_Out_Id == -1)
                             {
                                 sql = @"DELETE FROM " + DBConstant.PROXY_ACCOUNT_DETAIL_BANKFAIL + " where id=:id";
-                                oracleAccess.ExecuteSql(sql, new { id = item.ID, outID = item.Account_Detail_Out_Id });
+                                oracleAccess.ExecuteSql(sql, new { id = item.ID });
                             }
                             else if (item.Account_Detail_Out_Id == -2)
                             {

@@ -337,12 +337,12 @@ namespace BankBatchService
         /// <summary>
         /// 
         /// </summary>
-        public int Id { get; set; }
+        public long Id { get; set; }
 
         /// <summary>
         /// 
         /// </summary>
-        public int Package_No { get; set; }
+        public long Package_No { get; set; }
 
         /// <summary>
         /// 
@@ -742,7 +742,7 @@ namespace BankBatchService
         /// <summary>
         /// 主键 自增
         /// </summary>
-        public int Id { get; set; }
+        public long Id { get; set; }
 
         /// <summary>
         /// ETC账号A_ACCOUNT.ACCOUNT_NO
@@ -819,7 +819,7 @@ namespace BankBatchService
         /// <summary>
         /// 主键 自增
         /// </summary>
-        public int Id { get; set; }
+        public long Id { get; set; }
 
         /// <summary>
         /// ETC账号

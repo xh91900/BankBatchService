@@ -40,7 +40,6 @@ namespace BankBatchService
                         // 创建心跳
                         System.Timers.Timer _HeartBeat = new System.Timers.Timer();
                         _HeartBeat.Interval = System.Math.Abs(interval);
-                        //_HeartBeat.Interval = 20000;
                         _HeartBeat.Enabled = true;
                         _HeartBeat.Elapsed += _HeartBeat_Elapsed;
                         _HeartBeat.AutoReset = false;
@@ -220,50 +219,61 @@ SELECT " + DBConstant.sqlProxyAccountDetail + " from " + DBConstant.PROXY_ACCOUN
                         TransactionInfo info = new TransactionInfo();
                         oracleAccess.CommandText = sql;
                         myReader = oracleAccess.ExecuteReader();
-                        while (myReader.Read())
+                        try
                         {
-                            // 超过最大限制数量新建集合插入
-                            if (counter % bankAgent.Trans_Count_Max == 0)
+                            while (myReader.Read())
                             {
-                                // 包类型代码_文件名（不含后缀）例如,“2001_001000090020020170515091020”表示结算中心发送给工商银行的记账金客户转账请求数据集合
-                                collectionName = string.Format("{0}_{1}{2}{3}", (int)TransType, SYSConstant.SettleCenterCode, bankAgent.Bank_Code, DateTime.Now.ToString("yyyyMMddHHmmss"));
-                                mongoAccess = new MongoDBAccess<TransactionInfo>(SYSConstant.BANK_TRANS, collectionName);
+                                // 超过最大限制数量新建集合插入
+                                if (counter % bankAgent.Trans_Count_Max == 0)
+                                {
+                                    // 包类型代码_文件名（不含后缀）例如,“2001_001000090020020170515091020”表示结算中心发送给工商银行的记账金客户转账请求数据集合
+                                    collectionName = string.Format("{0}_{1}{2}{3}", (int)TransType, SYSConstant.SettleCenterCode, bankAgent.Bank_Code, DateTime.Now.ToString("yyyyMMddHHmmss"));
+                                    mongoAccess = new MongoDBAccess<TransactionInfo>(SYSConstant.BANK_TRANS, collectionName);
 
-                                // 将汇总信息写入输出定时处理任务数据集合
-                                InsertIntoOutPutTaskWaitingDone(bankAgent, PriorityLevel, TransType, collectionName);
-                                ShowMessage.ShowMsgColor(string.Format("写入一条汇总信息：{0}_{1}_{2}", bankAgent.Bank_Name, (int)TransType, collectionName), System.Drawing.Color.Green);
-                            }
-                            info._id = myReader["id"].ToString();
-                            info.ACBAccount = myReader["ACCOUNT_ID"].ToString();
-                            info.ACBAccountN = myReader["ACCOUNT_NAME"].ToString();
-                            info.Income = int.Parse((decimal.Parse(myReader["OUT_MONEY"].ToString()) * 100).ToString("F0"));
-                            info.BankChargeTime = DateTime.Parse(myReader["CHARGE_TIME"].ToString()).AddHours(8);
-                            info.TransTime = DateTime.Parse(myReader["IC_TRANS_TIME"].ToString()).AddHours(8);
-                            info.PlateNumbers = myReader["CAR_SERIAL"].ToString();
-                            if (string.IsNullOrEmpty(myReader["CAR_SERIAL"].ToString()))
-                            {
-                                info.PlateNumbers = "未知";
-                            }
-                            int vehicleType = 0;
-                            int.TryParse(myReader["VEHCLASS"].ToString(), out vehicleType);
-                            info.VehicleType = new int[] { 0, 1, 2, 3, 4, 11, 12, 13, 14, 15 }.Contains(vehicleType) ? vehicleType : 0;
-                            info.AccType = new string[] { "0", "1", "2", "3", "4" }.Contains(myReader["account_type"].ToString()) ? int.Parse(myReader["account_type"].ToString()) : 9;
-                            if (info.AccType == 3)
-                            {
-                                info.AccType = 1;
-                            }
-                            else if (info.AccType == 4)
-                            {
-                                info.AccType = 2;
-                            }
+                                    // 将汇总信息写入输出定时处理任务数据集合
+                                    InsertIntoOutPutTaskWaitingDone(bankAgent, PriorityLevel, TransType, collectionName);
+                                    ShowMessage.ShowMsgColor(string.Format("写入一条汇总信息：{0}_{1}_{2}", bankAgent.Bank_Name, (int)TransType, collectionName), System.Drawing.Color.Green);
+                                }
+                                info._id = myReader["id"].ToString();
+                                info.ACBAccount = myReader["ACCOUNT_ID"].ToString();
+                                info.ACBAccountN = myReader["ACCOUNT_NAME"].ToString();
+                                info.Income = int.Parse((decimal.Parse(myReader["OUT_MONEY"].ToString()) * 100).ToString("F0"));
+                                info.BankChargeTime = DateTime.Parse(myReader["CHARGE_TIME"].ToString()).AddHours(8);
+                                info.TransTime = DateTime.Parse(myReader["IC_TRANS_TIME"].ToString()).AddHours(8);
+                                info.PlateNumbers = myReader["CAR_SERIAL"].ToString();
+                                if (string.IsNullOrEmpty(myReader["CAR_SERIAL"].ToString()))
+                                {
+                                    info.PlateNumbers = "未知";
+                                }
+                                int vehicleType = 0;
+                                int.TryParse(myReader["VEHCLASS"].ToString(), out vehicleType);
+                                info.VehicleType = new int[] { 0, 1, 2, 3, 4, 11, 12, 13, 14, 15 }.Contains(vehicleType) ? vehicleType : 0;
+                                info.AccType = new string[] { "0", "1", "2", "3", "4" }.Contains(myReader["account_type"].ToString()) ? int.Parse(myReader["account_type"].ToString()) : 9;
+                                if (info.AccType == 3)
+                                {
+                                    info.AccType = 1;
+                                }
+                                else if (info.AccType == 4)
+                                {
+                                    info.AccType = 2;
+                                }
 
-                            // 写入动态库失败会发送不完整的扣款文件。
-                            mongoAccess.InsertOne(info);
+                                // 写入动态库失败会发送不完整的扣款文件。
+                                mongoAccess.InsertOne(info);
 
-                            // 每次插入之后清空
-                            ClearTransactionInfo(info);
-                            counter++;
-                            writeCount++;
+                                // 每次插入之后清空
+                                ClearTransactionInfo(info);
+                                counter++;
+                                writeCount++;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            throw ex;
+                        }
+                        finally
+                        {
+                            myReader.Close();
                         }
                     }
                 }
@@ -380,7 +390,7 @@ SELECT " + DBConstant.sqlProxyAccountDetail + " from " + DBConstant.PROXY_ACCOUN
                 using (OracleDBAccess oracleAccess = new OracleDBAccess())
                 {
                     // 前时刻与BANK_CHARGE_TIME之差大于30天的记录,只做支持2002的银行
-                    sql = @"SELECT " + DBConstant.sqlProxyAccountDetail + " from " + DBConstant.PROXY_ACCOUNT_DETAIL_BANKFAIL + " where trunc(sysdate)-trunc(BANK_CHARGE_TIME)>" + int.Parse(SYSConstant.sParam.Find(p => p.Key == "DEPOSITCAPITALDISPUTEPERIOD").Value) + " AND ACCOUNT_TYPE<>2 AND BANK_TAG in (" + string.Join(",", bankAgent.Select(p => p.Bank_Tag)) + ")";
+                    sql = @"SELECT " + DBConstant.sqlProxyAccountDetail + " from " + DBConstant.PROXY_ACCOUNT_DETAIL_BANKFAIL + " where trunc(sysdate)-trunc(BANK_CHARGE_TIME)>" + int.Parse(SYSConstant.sParam.Find(p => p.Key == "DEPOSITCAPITALDISPUTEPERIOD").Value) + " AND ACCOUNT_TYPE<>2 AND BANK_TAG in ('" + string.Join("','", bankAgent.Select(p => p.Bank_Tag)) + "')";
                     List<ProxyAccountDetailBankFail> bankFailList = oracleAccess.QuerySql<ProxyAccountDetailBankFail>(sql, null);
                     foreach (var bankFail in bankFailList)
                     {
@@ -618,76 +628,83 @@ values
         /// </summary>
         private void DepositAmountReduceTask()
         {
-            using (OracleDBAccess oracleAccess = new OracleDBAccess())
+            try
             {
-                try
+                using (OracleDBAccess oracleAccess = new OracleDBAccess())
                 {
-                    List<RemoveCarBinding> removeCarBindingList = QueryRemoveCarBinding();
-                    List<RemoveCarBinding> rcbList = QueryRemoveCarBindingWithCondition();
-                    ShowMessage.ShowMsgColor("获得解绑车辆信息" + removeCarBindingList.Count + rcbList.Count() + "条", System.Drawing.Color.Green);
-
-
-                    foreach (RemoveCarBinding removeCarBinding in rcbList)
+                    try
                     {
-                        oracleAccess.BeginTransaction();
-                        List<ProxyAccountDetailBankFail> proxyAccountDetailBankFailList = QueryProxyAccountDetailBankFailByCardNo(removeCarBinding.Card_No);
-                        List<ProxyAccountDetailBankFailWaitDeduct> proxyAccountDetailBankFailWaitDeductList = QueryProxyAccountDetailBankFailWaitDeductByCardNo(removeCarBinding.Card_No);
-                        bool haveBankFail = proxyAccountDetailBankFailList != null && proxyAccountDetailBankFailList.Any();
-                        bool haveBankFailWaitDeduct = proxyAccountDetailBankFailWaitDeductList != null && proxyAccountDetailBankFailWaitDeductList.Any();
-                        DateTime modifyTime = DateTime.Now;
-                        if (haveBankFail || haveBankFailWaitDeduct)
-                        {
+                        List<RemoveCarBinding> removeCarBindingList = QueryRemoveCarBinding();
+                        List<RemoveCarBinding> rcbList = QueryRemoveCarBindingWithCondition();
+                        ShowMessage.ShowMsgColor("获得解绑车辆信息" + removeCarBindingList.Count + rcbList.Count() + "条", System.Drawing.Color.Green);
 
-                        }
-                        else
+                        foreach (RemoveCarBinding removeCarBinding in rcbList)
                         {
-                            removeCarBinding.Status = 1;
-                            removeCarBinding.Modify_Time = modifyTime;
-                            MongoDBAccess<BankAccountCancel> access = new MongoDBAccess<BankAccountCancel>(SYSConstant.BANK_ACCOUNT, SYSConstant.BANK_ACCOUNT_CANCEL);
-                            string sequence = SYSConstant.GetNextSequence(SYSConstant.currentSequence);
-                            SYSConstant.currentSequence = sequence;
-                            access.InsertOne(new BankAccountCancel() { _id = removeCarBinding.Bank_Tag + DateTime.Now.ToString("yyMMddHHmmss") + sequence, BankTag = removeCarBinding.Bank_Tag, AccountId = removeCarBinding.Account_Id, AccountName = removeCarBinding.Account_Name, CashDepositCut = removeCarBinding.Cash_Deposit_Cut, GenTime = modifyTime.AddHours(8), PlateNumbers = removeCarBinding.Plate_Numbers, CreateTime = DateTime.Now.AddHours(8), Command = 1, Status = removeCarBinding.Status, FileName = "" });
-                            UpdateBankAccount(removeCarBinding.Account_Id, removeCarBinding.Bank_Tag, removeCarBinding.Cash_Deposit_Cut, oracleAccess);
-                            UpdateRemoveCarBinding(removeCarBinding, oracleAccess);
+                            oracleAccess.BeginTransaction();
+                            List<ProxyAccountDetailBankFail> proxyAccountDetailBankFailList = QueryProxyAccountDetailBankFailByCardNo(removeCarBinding.Card_No);
+                            List<ProxyAccountDetailBankFailWaitDeduct> proxyAccountDetailBankFailWaitDeductList = QueryProxyAccountDetailBankFailWaitDeductByCardNo(removeCarBinding.Card_No);
+                            bool haveBankFail = proxyAccountDetailBankFailList != null && proxyAccountDetailBankFailList.Any();
+                            bool haveBankFailWaitDeduct = proxyAccountDetailBankFailWaitDeductList != null && proxyAccountDetailBankFailWaitDeductList.Any();
+                            DateTime modifyTime = DateTime.Now;
+                            if (haveBankFail || haveBankFailWaitDeduct)
+                            {
+
+                            }
+                            else
+                            {
+                                removeCarBinding.Status = 1;
+                                removeCarBinding.Modify_Time = modifyTime;
+                                MongoDBAccess<BankAccountCancel> access = new MongoDBAccess<BankAccountCancel>(SYSConstant.BANK_ACCOUNT, SYSConstant.BANK_ACCOUNT_CANCEL);
+                                string sequence = SYSConstant.GetNextSequence(SYSConstant.currentSequence);
+                                SYSConstant.currentSequence = sequence;
+                                access.InsertOne(new BankAccountCancel() { _id = removeCarBinding.Bank_Tag + DateTime.Now.ToString("yyMMddHHmmss") + sequence, BankTag = removeCarBinding.Bank_Tag, AccountId = removeCarBinding.Account_Id, AccountName = removeCarBinding.Account_Name, CashDepositCut = removeCarBinding.Cash_Deposit_Cut, GenTime = modifyTime.AddHours(8), PlateNumbers = removeCarBinding.Plate_Numbers, CreateTime = DateTime.Now.AddHours(8), Command = 1, Status = removeCarBinding.Status, FileName = "" });
+                                UpdateBankAccount(removeCarBinding.Account_Id, removeCarBinding.Bank_Tag, removeCarBinding.Cash_Deposit_Cut, oracleAccess);
+                                UpdateRemoveCarBinding(removeCarBinding, oracleAccess);
+                            }
+                            oracleAccess.CommitTransaction();
                         }
-                        oracleAccess.CommitTransaction();
+
+                        foreach (RemoveCarBinding removeCarBinding in removeCarBindingList)
+                        {
+                            oracleAccess.BeginTransaction();
+                            List<ProxyAccountDetailBankFail> proxyAccountDetailBankFailList = QueryProxyAccountDetailBankFailByCardNo(removeCarBinding.Card_No);
+                            List<ProxyAccountDetailBankFailWaitDeduct> proxyAccountDetailBankFailWaitDeductList = QueryProxyAccountDetailBankFailWaitDeductByCardNo(removeCarBinding.Card_No);
+
+                            bool haveBankFail = proxyAccountDetailBankFailList != null && proxyAccountDetailBankFailList.Any();
+                            bool haveBankFailWaitDeduct = proxyAccountDetailBankFailWaitDeductList != null && proxyAccountDetailBankFailWaitDeductList.Any();
+                            DateTime modifyTime = DateTime.Now;
+                            if (haveBankFail || haveBankFailWaitDeduct)
+                            {
+                                removeCarBinding.Status = 2;
+                                removeCarBinding.Modify_Time = modifyTime;
+                                UpdateRemoveCarBinding(removeCarBinding, oracleAccess);
+                            }
+                            else
+                            {
+                                removeCarBinding.Status = 1;
+                                removeCarBinding.Modify_Time = modifyTime;
+                                MongoDBAccess<BankAccountCancel> access = new MongoDBAccess<BankAccountCancel>(SYSConstant.BANK_ACCOUNT, SYSConstant.BANK_ACCOUNT_CANCEL);
+                                string sequence = SYSConstant.GetNextSequence(SYSConstant.currentSequence);
+                                SYSConstant.currentSequence = sequence;
+                                access.InsertOne(new BankAccountCancel() { _id = removeCarBinding.Bank_Tag + DateTime.Now.ToString("yyMMddHHmmss") + sequence, BankTag = removeCarBinding.Bank_Tag, AccountId = removeCarBinding.Account_Id, AccountName = removeCarBinding.Account_Name, CashDepositCut = removeCarBinding.Cash_Deposit_Cut, GenTime = modifyTime.AddHours(8), PlateNumbers = removeCarBinding.Plate_Numbers, CreateTime = DateTime.Now.AddHours(8), Command = 1, Status = removeCarBinding.Status, FileName = "" });
+                                UpdateBankAccount(removeCarBinding.Account_Id, removeCarBinding.Bank_Tag, removeCarBinding.Cash_Deposit_Cut, oracleAccess);
+                                UpdateRemoveCarBinding(removeCarBinding, oracleAccess);
+                            }
+                            oracleAccess.CommitTransaction();
+                        }
                     }
-
-                    foreach (RemoveCarBinding removeCarBinding in removeCarBindingList)
+                    catch (Exception ex)
                     {
-                        oracleAccess.BeginTransaction();
-                        List<ProxyAccountDetailBankFail> proxyAccountDetailBankFailList = QueryProxyAccountDetailBankFailByCardNo(removeCarBinding.Card_No);
-                        List<ProxyAccountDetailBankFailWaitDeduct> proxyAccountDetailBankFailWaitDeductList = QueryProxyAccountDetailBankFailWaitDeductByCardNo(removeCarBinding.Card_No);
-
-                        bool haveBankFail = proxyAccountDetailBankFailList != null && proxyAccountDetailBankFailList.Any();
-                        bool haveBankFailWaitDeduct = proxyAccountDetailBankFailWaitDeductList != null && proxyAccountDetailBankFailWaitDeductList.Any();
-                        DateTime modifyTime = DateTime.Now;
-                        if (haveBankFail || haveBankFailWaitDeduct)
-                        {
-                            removeCarBinding.Status = 2;
-                            removeCarBinding.Modify_Time = modifyTime;
-                            UpdateRemoveCarBinding(removeCarBinding, oracleAccess);
-                        }
-                        else
-                        {
-                            removeCarBinding.Status = 1;
-                            removeCarBinding.Modify_Time = modifyTime;
-                            MongoDBAccess<BankAccountCancel> access = new MongoDBAccess<BankAccountCancel>(SYSConstant.BANK_ACCOUNT, SYSConstant.BANK_ACCOUNT_CANCEL);
-                            string sequence = SYSConstant.GetNextSequence(SYSConstant.currentSequence);
-                            SYSConstant.currentSequence = sequence;
-                            access.InsertOne(new BankAccountCancel() { _id = removeCarBinding.Bank_Tag + DateTime.Now.ToString("yyMMddHHmmss") + sequence, BankTag = removeCarBinding.Bank_Tag, AccountId = removeCarBinding.Account_Id, AccountName = removeCarBinding.Account_Name, CashDepositCut = removeCarBinding.Cash_Deposit_Cut, GenTime = modifyTime.AddHours(8), PlateNumbers = removeCarBinding.Plate_Numbers, CreateTime = DateTime.Now.AddHours(8), Command = 1, Status = removeCarBinding.Status, FileName = "" });
-                            UpdateBankAccount(removeCarBinding.Account_Id, removeCarBinding.Bank_Tag, removeCarBinding.Cash_Deposit_Cut, oracleAccess);
-                            UpdateRemoveCarBinding(removeCarBinding, oracleAccess);
-                        }
-                        oracleAccess.CommitTransaction();
+                        oracleAccess.RollbackTransaction();
+                        ShowMessage.ShowMsgColor("保证金金额减少信息（2012号报文）处理定时任务异常", System.Drawing.Color.Red);
+                        LogCommon.GetErrorLogInstance().LogError("保证金金额减少信息（2012号报文）处理定时任务异常：" + ex.ToString());
                     }
                 }
-                catch (Exception ex)
-                {
-                    oracleAccess.RollbackTransaction();
-                    ShowMessage.ShowMsgColor("保证金金额减少信息（2012号报文）处理定时任务异常", System.Drawing.Color.Red);
-                    LogCommon.GetErrorLogInstance().LogError("保证金金额减少信息（2012号报文）处理定时任务异常：" + ex.ToString());
-                }
+            }
+            catch (Exception ex)
+            {
+                ShowMessage.ShowMsgColor("保证金金额减少信息（2012号报文）处理定时任务异常", System.Drawing.Color.Red);
+                LogCommon.GetErrorLogInstance().LogError("保证金金额减少信息（2012号报文）处理定时任务异常：" + ex.ToString());
             }
         }
 
@@ -696,12 +713,12 @@ values
         /// </summary>
         public void StartProcessBankAccountBingETCTask()
         {
-            int timeSpan = int.Parse(SYSConstant.sParam.Find(p => p.Key == "S_Bank_Account_BingETC_Task_HEARTBEAT").Value) * 60 * 60 * 1000;// 小时
+            int timeSpan = int.Parse(SYSConstant.sParam.Find(p => p.Key == "S_BANK_ACCOUNT_BINGETC_TASK_HEARTBEAT").Value) * 60 * 60 * 1000;// 小时
             while (true)
             {
                 ShowMessage.ShowMsgColor("开始处理银行账号与ETC卡绑定信息（2008号报文）定时处理任务", System.Drawing.Color.Green);
                 BankAccountBingETCTask();
-                ShowMessage.ShowMsgColor("银行账号与ETC卡绑定信息（2008号报文）定时处理任务处理完成，当前线程" + System.Threading.Thread.CurrentThread.ManagedThreadId + "休眠" + SYSConstant.sParam.Find(p => p.Key == "S_Bank_Account_BingETC_Task_HEARTBEAT").Value + "小时", System.Drawing.Color.Green);
+                ShowMessage.ShowMsgColor("银行账号与ETC卡绑定信息（2008号报文）定时处理任务处理完成，当前线程" + System.Threading.Thread.CurrentThread.ManagedThreadId + "休眠" + SYSConstant.sParam.Find(p => p.Key == "S_BANK_ACCOUNT_BINGETC_TASK_HEARTBEAT").Value + "小时", System.Drawing.Color.Green);
                 System.Threading.Thread.Sleep(timeSpan);// 单位小时
             }
         }
@@ -723,19 +740,30 @@ values
                         MongoDBAccess<OutPutTaskWaitingDone> outPutTaskMongoAccess = new MongoDBAccess<OutPutTaskWaitingDone>(SYSConstant.BANK_TASK, SYSConstant.OUTPUTTASK_WAITING_DONE);
                         IDataReader myReader;
                         string sql = @"select a.CARD_NO,a.CARD_STATUS,d.ACCOUNT_ID,d.BANK_TAG from " + DBConstant.CARD_ACCOUNT + " a inner join " + DBConstant.AAccount + @" b on a.account_no=b.account_no inner join  
-" + DBConstant.BANK_ACCOUNT_BINDING + " c on a.account_no=c.account_no inner join " + DBConstant.BANK_ACCOUNT + " d on c.account_id=d.account_id where c.status=0 and c.bank_tag=" + bankAgent.Bank_Tag;
+" + DBConstant.BANK_ACCOUNT_BINDING + " c on a.account_no=c.account_no inner join " + DBConstant.BANK_ACCOUNT + " d on c.account_id=d.account_id where c.bank_tag='" + bankAgent.Bank_Tag + "' and c.status=0";
                         oracleAccess.CommandText = sql;
                         myReader = oracleAccess.ExecuteReader();
-                        while (myReader.Read())
+                        try
                         {
-                            BankAccountidCardNo cardNo = new BankAccountidCardNo();
-                            string sequence = SYSConstant.GetNextSequence(SYSConstant.currentSequence);
-                            SYSConstant.currentSequence = sequence;
-                            cardNo._id = myReader["BANK_TAG"].ToString() + DateTime.Now.ToString("yyMMddHHmmss") + sequence;
-                            cardNo.AccountId = myReader["ACCOUNT_ID"].ToString();
-                            cardNo.CardStatus = myReader["CARD_STATUS"].ToString();
-                            cardNo.JtcardId = myReader["CARD_NO"].ToString();
-                            cardMongoAccess.InsertOne(cardNo);
+                            while (myReader.Read())
+                            {
+                                BankAccountidCardNo cardNo = new BankAccountidCardNo();
+                                string sequence = SYSConstant.GetNextSequence(SYSConstant.currentSequence);
+                                SYSConstant.currentSequence = sequence;
+                                cardNo._id = myReader["BANK_TAG"].ToString() + DateTime.Now.ToString("yyMMddHHmmss") + sequence;
+                                cardNo.AccountId = myReader["ACCOUNT_ID"].ToString();
+                                cardNo.CardStatus = myReader["CARD_STATUS"].ToString();
+                                cardNo.JtcardId = myReader["CARD_NO"].ToString();
+                                cardMongoAccess.InsertOne(cardNo);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            throw ex;
+                        }
+                        finally
+                        {
+                            myReader.Close();
                         }
                         OutPutTaskWaitingDone outPutTask = new OutPutTaskWaitingDone();
                         outPutTask.BankTag = bankAgent.Bank_Tag;

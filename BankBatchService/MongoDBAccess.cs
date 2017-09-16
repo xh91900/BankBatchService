@@ -62,9 +62,16 @@ namespace BankBatchService
         // 插入多条记录
         public void InsertMany(List<T> paramList)
         {
-            if (paramList != null && paramList.Any())
+            try
             {
-                this.mCollection.InsertMany(paramList);
+                if (paramList != null && paramList.Any())
+                {
+                    this.mCollection.InsertMany(paramList);
+                }
+            }
+            catch (Exception ex)
+            {
+                throw ex;
             }
         }
 
